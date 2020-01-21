@@ -14,7 +14,7 @@ class Computer {
 
     giveInput(input) {
         this.inputs = input
-        this.run();
+        return this.run();
     }
 
     modes(param, pos) {
@@ -36,8 +36,9 @@ class Computer {
 
     run() {
 
-        while (true) {
 
+        while (true) {
+           
             const opcode = Number(this.program[this.index].toString().slice(-2));
             
 			const num = this.program[this.index].toString().slice(0, -2).split('').map(Number);;
@@ -56,18 +57,14 @@ class Computer {
                 this.index += 4;
 
 			} else if(opcode === 3) {
+
 				if(this.inputs.length === 0) break
                 this.program[o] = this.inputs[0];
                 this.inputs.shift();
                 this.index += 2;
            	
 			} else if(opcode === 4) {
-                // if(this.output.length === 2) {
-                //     this.output = [];
-                //     break
-                // } 
-                this.output = [...this.output, Number(this.program[o])];
-                console.log(this.output)
+                this.output.push( Number(this.program[o]) );
                 this.index += 2;
 			} else if(opcode === 5) {
 				this.index = a !== 0 ? b : this.index+3
@@ -95,6 +92,8 @@ class Computer {
             }
 
         }
+
+        return this.output
     }
 }
 
@@ -109,42 +108,42 @@ const part1 = program => {
     let colors = []
 
 
-    while(pos.length < 8) {
+    while(pos.length < 50) {
 
         const copy = Object.assign([], pos)
         copy.pop()
         const last = pos[pos.length - 1];
         const lastColor = copy.find(e => e[0] === last[0] && e[1] === last[1])
-
+        console.log(lastColor, copy)
         const input =  lastColor ? lastColor[2] : 0;
 
+        const output = computer.giveInput( [input] )
         
 
-        computer.giveInput( [input] );
-        
-        // console.log(orientation)
+        if(output.length > 1) {
 
-        last[2] = computer.output[0];
-        orientation = computer.output[1] === 0 ? orientation-90 : orientation+90
-        orientation = orientation < 0 ? (360+orientation) : orientation
+            last[2] = output.shift();
+            orientation = output.shift() === 0 ? orientation-90 : orientation+90
+            orientation = orientation < 0 ? (360+orientation) : orientation
 
-        let newPos = [last[0], last[1]]
+            let newPos = [last[0], last[1]]
 
-        if(orientation%360 === 0) {
-            newPos = [last[0], last[1] + 1]
+            if(orientation%360 === 0) {
+                newPos = [last[0], last[1] + 1]
 
-        } else if(orientation%360 === 90) {
-            newPos = [last[0] + 1, last[1]]
+            } else if(orientation%360 === 90) {
+                newPos = [last[0] + 1, last[1]]
 
-        } else if(orientation%360 === 180) {
-            newPos = [last[0], last[1] - 1]
+            } else if(orientation%360 === 180) {
+                newPos = [last[0], last[1] - 1]
 
-        } else if(orientation%360 === 270) {
-            newPos = [last[0] - 1, last[1] ]
-        }  
+            } else if(orientation%360 === 270) {
+                newPos = [last[0] - 1, last[1] ]
+            }  
 
-        
-        pos.push(newPos) 
+            pos.push(newPos) 
+
+        }
 
     }
     
@@ -158,5 +157,5 @@ const part1 = program => {
 
 }
 
-console.log(part1(puzzle))
+console.log(part1(puzzle)) //2469
 // console.log(part2(puzzle))
