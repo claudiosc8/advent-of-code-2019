@@ -91,10 +91,38 @@ const demo3 = `2 VPVL, 7 FWMGM, 2 CXFTF, 11 MNCFX => 1 STKFG
 1 VJHF, 6 MNCFX => 4 RFSQX
 176 ORE => 6 VJHF`
 
+const demo4 = `171 ORE => 8 CNZTR
+7 ZLQW, 3 BMBT, 9 XCVML, 26 XMNCP, 1 WPTQ, 2 MZWV, 1 RJRHP => 4 PLWSL
+114 ORE => 4 BHXH
+14 VRPVC => 6 BMBT
+6 BHXH, 18 KTJDG, 12 WPTQ, 7 PLWSL, 31 FHTLT, 37 ZDVW => 1 FUEL
+6 WPTQ, 2 BMBT, 8 ZLQW, 18 KTJDG, 1 XMNCP, 6 MZWV, 1 RJRHP => 6 FHTLT
+15 XDBXC, 2 LTCX, 1 VRPVC => 6 ZLQW
+13 WPTQ, 10 LTCX, 3 RJRHP, 14 XMNCP, 2 MZWV, 1 ZLQW => 1 ZDVW
+5 BMBT => 4 WPTQ
+189 ORE => 9 KTJDG
+1 MZWV, 17 XDBXC, 3 XCVML => 2 XMNCP
+12 VRPVC, 27 CNZTR => 2 XDBXC
+15 KTJDG, 12 BHXH => 5 XCVML
+3 BHXH, 2 VRPVC => 7 MZWV
+121 ORE => 7 VRPVC
+7 XCVML => 6 RJRHP
+5 BHXH, 4 VRPVC => 5 LTCX`
 
-`154 DCFZ, 154 PSHF, 3 DCFZ, 7 NZVS, 5 HKGWZ, 10 PSHF, 12 HKGWZ, 1 GPVTF, 8 PSHF, 29 NZVS, 9 GPVTF, 48 HKGWZ`
-`157 DCFZ, 172 PSHF, 36 NZVS, 65 HKGWZ, 10 GPVTF`
-`4455 + 4475 + 1256 + 2301 + 825`
+
+// `154 DCFZ, 154 PSHF, 3 DCFZ, 7 NZVS, 5 HKGWZ, 10 PSHF, 12 HKGWZ, 1 GPVTF, 8 PSHF, 29 NZVS, 9 GPVTF, 48 HKGWZ`
+// `157 DCFZ, 172 PSHF, 36 NZVS, 65 HKGWZ, 10 GPVTF`
+// `4455 + 4475 + 1256 + 2301 + 825`
+
+// `157 ORE => 5 NZVS
+// 165 ORE => 6 DCFZ
+// 44 XJWVT, 5 KHKGT, 1 QDVJ + 942 + 9 GPVTF, 48 HKGWZ => 1 FUEL
+// 12 HKGWZ, 1 GPVTF, 8 PSHF => 9 QDVJ
+// 179 ORE => 7 PSHF
+// 177 ORE => 5 HKGWZ
+// 330 + 7 PSHF => 2 XJWVT
+// 165 ORE => 2 GPVTF
+// 165 + + 314 + 5 HKGWZ, 10 PSHF => 8 KHKGT`
 
 const setup = puzzle => {
 
@@ -117,19 +145,132 @@ const setup = puzzle => {
 
 }
 
+
+const countConnections = (item, array) => {
+
+    let temp = item;
+    let i = 0;
+    let condition = false
+    while(!condition) {
+
+        const link = array.find(e => e[1][0][1] === temp )
+
+        if(link) {
+            // console.log(link)
+            link[0].forEach(i => {
+                temp = i[1];
+                const n = countConnections(temp, array)
+            })
+        } else {
+            condition = true;
+        }
+
+        i++
+    }
+
+    return i
+}
+
+const findDuplicatesAndSum = (inptArr) => {
+    var duplicateIndex = {};
+    var outputArr = [];
+    for (var i = 0; i < inptArr.length; i++) {
+        var item = inptArr[i];
+        var collisionIndex = duplicateIndex[item[1]];
+        if (collisionIndex > -1) {
+            outputArr[collisionIndex][0] += item[0];
+        } else {
+            outputArr.push(item);
+            duplicateIndex[item[1]] = outputArr.length - 1;
+        }
+    }
+    return outputArr;
+};
+
 const part1 = (input) => {
 
+    const array = setup(input);
+    const fuel = array.find(e => e[1][0][1] === "FUEL")[0]
+
+    let reduced = Object.assign([], fuel);
+
+    let condition = false;
+
+    while(!condition) {
+
+        let temp = [];
+
+        fuel.forEach(s => {
+
+            const link = array.find(e => e[1][0][1] === s[1] )
+
+            const copy = Object.assign([],link)
+            const result = copy[1][0];
+            const reagents = copy[0]
+
+            if (link) {
+                
+                if (reagents.length === 1 && reagents[0][1] === "ORE") {
+                     temp = [...temp, s]
+                } else {
+                    const m = Math.ceil(s[0]/result[0])
+                    reagents.forEach(e => e[0] = e[0]*m)
+                    temp = [...temp, ...reagents]
+                }
+
+            }
+        })
+
+        reduced = findDuplicatesAndSum(temp)
+
+        condition = reduced.every(s => {
+            const link = array.find(e => e[1][0][1] === s[1] )
+            const reagents = link[0]
+            if(reagents.length === 1 && reagents[0][1] === "ORE") {
+                return true
+            } else {
+                return false
+            }
+        });
+
+
+    }
+
+    const ore = reduced.map( curr => {
+
+        const link = array.find(e => e[1][0][1] === curr[1] )
+
+        const result = link[1][0];
+        const ore = link[0][0]
+
+        const m = Math.ceil(curr[0]/result[0])*ore[0]
+        return  m
+
+    })
+
+    const sum = ore.reduce((acc, curr) => acc + curr,0)
+
+    return sum
 
 }
 
 // PART 2
 
 const part2 = input => {
+    const array = setup(input);
+    const fuel = array.find(e => e[1][0][1] === "FUEL")[0]
 
+    let a = [];
+
+    fuel.forEach(e => {
+        a.push( countConnections(e[1], array) )
+    })
+
+    return a
 
 }
 
-console.log('setup', setup(demo2) )
+console.log('KHKGT', part2(puzzle) )
 // console.log('part1', part1(puzzle, 1000) ) // 10055
 // console.log('part2', part2(puzzle) )
 
