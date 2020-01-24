@@ -151,19 +151,15 @@ const countConnections = (item, array) => {
     let temp = item;
     let i = 0;
     let condition = false
-    while(!condition) {
+    while(temp !== 'ORE') {
 
         const link = array.find(e => e[1][0][1] === temp )
 
-        if(link) {
-            // console.log(link)
-            link[0].forEach(i => {
-                temp = i[1];
-                const n = countConnections(temp, array)
-            })
-        } else {
-            condition = true;
-        }
+        // console.log(link)
+        link[0].forEach(i => {
+            temp = i[1];
+            const n = countConnections(i[1], array)
+        })
 
         i++
     }
@@ -270,7 +266,7 @@ const part2 = input => {
 
 }
 
-console.log('KHKGT', part2(puzzle) )
+console.log('count', part2(demo3) )
 // console.log('part1', part1(puzzle, 1000) ) // 10055
 // console.log('part2', part2(puzzle) )
 
