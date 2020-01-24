@@ -110,20 +110,6 @@ const demo4 = `171 ORE => 8 CNZTR
 5 BHXH, 4 VRPVC => 5 LTCX`
 
 
-// `154 DCFZ, 154 PSHF, 3 DCFZ, 7 NZVS, 5 HKGWZ, 10 PSHF, 12 HKGWZ, 1 GPVTF, 8 PSHF, 29 NZVS, 9 GPVTF, 48 HKGWZ`
-// `157 DCFZ, 172 PSHF, 36 NZVS, 65 HKGWZ, 10 GPVTF`
-// `4455 + 4475 + 1256 + 2301 + 825`
-
-// `157 ORE => 5 NZVS
-// 165 ORE => 6 DCFZ
-// 44 XJWVT, 5 KHKGT, 1 QDVJ + 942 + 9 GPVTF, 48 HKGWZ => 1 FUEL
-// 12 HKGWZ, 1 GPVTF, 8 PSHF => 9 QDVJ
-// 179 ORE => 7 PSHF
-// 177 ORE => 5 HKGWZ
-// 330 + 7 PSHF => 2 XJWVT
-// 165 ORE => 2 GPVTF
-// 165 + + 314 + 5 HKGWZ, 10 PSHF => 8 KHKGT`
-
 const setup = puzzle => {
 
     const array = puzzle
@@ -148,20 +134,22 @@ const setup = puzzle => {
 
 const countConnections = (item, array) => {
 
-    let temp = item;
-    let i = 0;
-    let condition = false
-    while(temp !== 'ORE') {
-
-        const link = array.find(e => e[1][0][1] === temp )
-
-        // console.log(link)
-        link[0].forEach(i => {
-            temp = i[1];
-            const n = countConnections(i[1], array)
+    let i = 0
+    if(item === 'ORE') return -1
+    let temp = array.find(e => e[1][0][1] === item )[0].map(e => e[1])
+    
+    while(!temp.every(e => e === 'ORE')) {
+   
+        temp.forEach((a,i) => {
+            if(a !== "ORE") {
+            const link = array.find(e => e[1][0][1] === a)
+            temp[i] = link[0].map(e => e[1]) 
+            }
         })
 
+        temp = temp.reduce((acc, e) => acc.concat(e), []).reduce((acc, e) => acc.includes(e) ? acc : [...acc,e],[]);
         i++
+
     }
 
     return i
@@ -183,90 +171,69 @@ const findDuplicatesAndSum = (inptArr) => {
     return outputArr;
 };
 
-const part1 = (input) => {
+const part1 = (input, q = 1) => {
+
+    console.time('time1');
 
     const array = setup(input);
-    const fuel = array.find(e => e[1][0][1] === "FUEL")[0]
+    const fuel = array.find(e => e[1][0][1] === "FUEL")[0].map(e => [e[0]*q, e[1]])
 
-    let reduced = Object.assign([], fuel);
+    let sol = Object.assign([], fuel);
+    let i = 0
 
-    let condition = false;
+    while(!sol.every(e => e[1] === 'ORE')) {
 
-    while(!condition) {
+        let order = sol.map( e => countConnections(e[1],array) )
 
-        let temp = [];
+        const max = Math.max(...order)
 
-        fuel.forEach(s => {
+        sol.forEach((a,i) => {
 
-            const link = array.find(e => e[1][0][1] === s[1] )
+            if(countConnections(a[1],array) === max) {
 
-            const copy = Object.assign([],link)
-            const result = copy[1][0];
-            const reagents = copy[0]
+                const link = array.find(e => e[1][0][1] === a[1] )
 
-            if (link) {
-                
-                if (reagents.length === 1 && reagents[0][1] === "ORE") {
-                     temp = [...temp, s]
-                } else {
-                    const m = Math.ceil(s[0]/result[0])
-                    reagents.forEach(e => e[0] = e[0]*m)
-                    temp = [...temp, ...reagents]
-                }
+                const m = Math.ceil(a[0]/link[1][0][0])
+                const temp = link[0].map(e => [ e[0]*m, e[1] ] ) 
+
+                sol.splice(i, 1, ...temp);
 
             }
+                
         })
 
-        reduced = findDuplicatesAndSum(temp)
-
-        condition = reduced.every(s => {
-            const link = array.find(e => e[1][0][1] === s[1] )
-            const reagents = link[0]
-            if(reagents.length === 1 && reagents[0][1] === "ORE") {
-                return true
-            } else {
-                return false
-            }
-        });
-
+        sol = findDuplicatesAndSum(sol)
+        i++
 
     }
 
-    const ore = reduced.map( curr => {
+    console.timeEnd('time1');
 
-        const link = array.find(e => e[1][0][1] === curr[1] )
-
-        const result = link[1][0];
-        const ore = link[0][0]
-
-        const m = Math.ceil(curr[0]/result[0])*ore[0]
-        return  m
-
-    })
-
-    const sum = ore.reduce((acc, curr) => acc + curr,0)
-
-    return sum
+    return sol[0][0]
 
 }
 
 // PART 2
 
 const part2 = input => {
-    const array = setup(input);
-    const fuel = array.find(e => e[1][0][1] === "FUEL")[0]
+    
+    console.time('time2');
 
-    let a = [];
+    const u = part1(input) 
+    const goal = 1000000000000;
 
-    fuel.forEach(e => {
-        a.push( countConnections(e[1], array) )
-    })
+    const a = Math.round(goal / u)
+    const b = goal / part1(input, a)
 
-    return a
+    const r = Math.round(a*b)
+
+    console.timeEnd('time2');
+
+    return r
 
 }
 
-console.log('count', part2(demo3) )
-// console.log('part1', part1(puzzle, 1000) ) // 10055
-// console.log('part2', part2(puzzle) )
+console.log('part 1', part1(puzzle) ) //873899
+console.log('part 2', part2(puzzle) ) //1893569
+
 
