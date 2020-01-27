@@ -111,11 +111,10 @@ class Computer {
 
 class Robot {
 
-    constructor(program, direction = 1, x = 0, y = 0, steps = 0, history = []) {
+    constructor(program, direction = 1, x = 0, y = 0, steps = 0) {
         this.computer = new Computer(program);
         this.steps = steps;
         this.direction = direction;
-        this.history = history;
         this.x = x;
         this.y = y;
         this.lastDirection = direction;
@@ -163,8 +162,6 @@ class Robot {
                 this.x++
                 break;
         }
-
-        this.history.push([this.x,this.y])
 
     }
 
@@ -244,7 +241,6 @@ class Robot {
             ways:this.ways, 
             x:this.x, y:this.y, 
             steps:this.steps, 
-            history:this.history,
             cross:this.cross,
             impasse:this.impasse,
             ObjectFound:this.ObjectFound,
@@ -256,7 +252,7 @@ class Robot {
 
 class OxygenSystem {
 
-    constructor(input, dir, x, y, history = [], ctx) {
+    constructor(input, dir, x, y, ctx) {
         this.robot = [new Robot(input, dir, x, y).run(ctx)];
         this.ObjectFound;
         this.endPoints;
@@ -273,11 +269,11 @@ class OxygenSystem {
 
             this.robot.forEach(robot => {
 
-            const {program, ways, x, y, steps, history, cross, impasse, ObjectFound} = robot
+            const {program, ways, x, y, steps} = robot
 
                 for(let w = 0; w < ways.length; w++) {
 
-                    const output = new Robot(program, ways[w], x, y, steps, history).run(ctx);
+                    const output = new Robot(program, ways[w], x, y, steps).run(ctx);
                     
                     if(output.ObjectFound || output.cross) {
                         if(!this.robot.some(e => e.x === output.x && e.y === output.y)) {
@@ -286,7 +282,7 @@ class OxygenSystem {
                     }
 
                     if(output.ObjectFound) {
-                        this.ObjectFound = {steps: output.steps, x:output.x, y:output.y, program:output.program}
+                        this.ObjectFound = {steps: output.steps, x:output.x, y:output.y, program:output.program, direction:output.direction}
                     }
 
                     if(output.impasse) {
@@ -306,39 +302,35 @@ class OxygenSystem {
 
         }
 
-        return [this.ObjectFound, this.endPoints]
+        return {part1: this.ObjectFound, part2: this.endPoints}
 
     }
 
 }
 
 
-function part1(input) {
+function solution(input) {
 
     var c = document.getElementById("canvas");
     var ctx = c.getContext("2d");
     ctx.canvas.width  = window.innerWidth;
     ctx.canvas.height = window.innerHeight
 
-    const robot = new OxygenSystem(input,3, 20, 20, [], ctx)
+    // PART 1
+    const robot = new OxygenSystem(input,3, 20, 20, ctx).run(ctx)
 
-    return robot.run(ctx)[0].steps
-}
+    const part1 = robot.part1.steps;
 
-function part2(input) {
+    // PART 2
 
-    var c = document.getElementById("canvas");
-    var ctx = c.getContext("2d");
-    ctx.canvas.width  = window.innerWidth;
-    ctx.canvas.height = window.innerHeight
+    const {program, x, y, direction} = robot.part1;
+    const oxigen = new OxygenSystem(program , 4, x, y, ctx)
 
-    const robot = new OxygenSystem(input,3, 20, 20, [], ctx).run(ctx)
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const oxigen = new OxygenSystem(robot[0].program ,4, robot[0].x, robot[0].y, [], ctx)
+    const part2 = oxigen.run(ctx).part2.steps
 
-    return oxigen.run(ctx)[1].steps
+    return [part1, part2]
 }
 
 
-console.log('part1', part1(puzzle)) // 282
-console.log('part2', part2(puzzle))  // 286
+console.log('part1', solution(puzzle)) // 282
+
