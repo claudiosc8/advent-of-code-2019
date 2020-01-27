@@ -108,8 +108,6 @@ class Computer {
 
 }
 
-// PART 1 
-
 
 class Robot {
 
@@ -196,7 +194,6 @@ class Robot {
     draw(ctx, color) {
         ctx.fillStyle = color;
 
-
         ctx.fillRect(this.x*this.unit, this.y*this.unit, this.unit, this.unit);
 
         ctx.strokeStyle = "#FFFFFF";
@@ -212,7 +209,7 @@ class Robot {
             const [output] = this.computer.giveInput([this.direction]).run(1);
 
             if (output === 0) {
-                
+
                 console.log('wall hitted')
 
             } else if(output === 1) {
@@ -221,22 +218,9 @@ class Robot {
                 this.draw(ctx, "rgba(0, 0, 0, 0.2)")
                 this.newDirection();
 
-                // if(this.cross) {
-
-                //     for(let i = 0; i < this.ways.length; i++) {
-
-                //         const robot = new Robot(this.computer.program, this.ways[i], this.x, this.y, this.steps+1, this.history )
-                //         const search = robot.run(ctx)
-
-                //         if(robot.ObjectFound) {
-                //             console.log(robot.steps)
-                //             this.minimumSteps = robot.steps
-                //             break;
-
-                //         } 
-
-                //     }
-                // }
+                if(this.cross) {
+                   this.draw(ctx, "rgba(255, 0, 255, 0.2)")
+                }
 
                 this.lastDirection = this.direction
                 
@@ -244,7 +228,6 @@ class Robot {
 
                 this.move(this.direction);
                 this.draw(ctx, "#FF0000")
-                console.log('found it',this.x,this.y)
                 this.ObjectFound = true;
 
 
@@ -260,7 +243,7 @@ class Robot {
             program:this.computer.program, 
             ways:this.ways, 
             x:this.x, y:this.y, 
-            steps:this.steps+1, 
+            steps:this.steps, 
             history:this.history,
             cross:this.cross,
             impasse:this.impasse,
@@ -271,51 +254,64 @@ class Robot {
 
 }
 
-class RunRobot {
+class OxygenSystem {
 
     constructor(input, dir, x, y, history = [], ctx) {
-        this.robot = new Robot(input, dir, x, y).run(ctx);
-        this.history = history;
+        this.robot = [new Robot(input, dir, x, y).run(ctx)];
+        this.ObjectFound;
+        this.endPoints;
+        this.stop = false;
     }
 
     run(ctx) {
 
-
         let i = 0;
-        while(i<11) {
 
-            const {program, ways, x, y, steps, history, cross, impasse, ObjectFound} = this.robot
+        while(!this.stop) {
 
-            let hit = 0;
+            let count = this.robot.length;
 
-            for(let w = 0; w < ways.length; w++) {
+            this.robot.forEach(robot => {
 
-                const newRobot = new Robot(program, ways[w], x, y, steps, history)
-                const output = newRobot.run(ctx);
-                
-                if(output.cross) {
-                    this.robot = output
+            const {program, ways, x, y, steps, history, cross, impasse, ObjectFound} = robot
+
+                for(let w = 0; w < ways.length; w++) {
+
+                    const output = new Robot(program, ways[w], x, y, steps, history).run(ctx);
+                    
+                    if(output.ObjectFound || output.cross) {
+                        if(!this.robot.some(e => e.x === output.x && e.y === output.y)) {
+                            this.robot = [...this.robot, output]
+                        }
+                    }
+
+                    if(output.ObjectFound) {
+                        this.ObjectFound = {steps: output.steps, x:output.x, y:output.y, program:output.program}
+                    }
+
+                    if(output.impasse) {
+                        if(this.endPoints === undefined || this.endPoints.steps < output.steps) {
+                            this.endPoints = {x:output.x, y:output.y, steps:output.steps}
+                        }
+                    }
                 }
 
-                if(output.impasse) {
-                    hit++
-                }
+            })
 
-            }
-            
-            if(hit === ways.length) {
-                console.log('ht')
+            if(count === this.robot.length) {
+                this.stop = true
             }
 
             i++
 
         }
 
+        return [this.ObjectFound, this.endPoints]
 
-        return this.robot.steps
     }
 
 }
+
 
 function part1(input) {
 
@@ -324,10 +320,25 @@ function part1(input) {
     ctx.canvas.width  = window.innerWidth;
     ctx.canvas.height = window.innerHeight
 
-    const robot = new RunRobot(input,3, 20, 20, [], ctx)
-    return robot.run(ctx)
+    const robot = new OxygenSystem(input,3, 20, 20, [], ctx)
+
+    return robot.run(ctx)[0].steps
+}
+
+function part2(input) {
+
+    var c = document.getElementById("canvas");
+    var ctx = c.getContext("2d");
+    ctx.canvas.width  = window.innerWidth;
+    ctx.canvas.height = window.innerHeight
+
+    const robot = new OxygenSystem(input,3, 20, 20, [], ctx).run(ctx)
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const oxigen = new OxygenSystem(robot[0].program ,4, robot[0].x, robot[0].y, [], ctx)
+
+    return oxigen.run(ctx)[1].steps
 }
 
 
-console.log('part1', part1(puzzle)) //355
-// console.log('part2', part2(puzzle)) //18371
+console.log('part1', part1(puzzle)) // 282
+console.log('part2', part2(puzzle))  // 286
