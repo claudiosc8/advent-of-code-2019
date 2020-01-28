@@ -5,40 +5,9 @@ const demo1 = `80871224585914546619083218645595`
 const demo2 = `19617804207202209144916044189917`
 const demo3 = `69317163492948606335995924319873`
 const demo4 = `03036732577212944063491565474664`
+const demo5 = `02935109699940807407585447034323`
 
 
-const FFTCopy = (input, offset = 0) => {
-
-    const BasePattern = [0,1,0,-1]
-    let InputSignal = input
-
-    let phase = 0
-
-    while (phase<100) {
-      
-      const nextInput = InputSignal.reduce((acc,o,i) => {
-
-        let newPattern = BasePattern.map(e => Array(1+i).fill(e) ).flat()
-        // move the first digit at the end
-        newPattern.push(newPattern.shift())
-
-        const r = InputSignal.reduce((acc, e, i) => acc + e * newPattern[i % newPattern.length] ,0 )
-
-        //Get last digit
-        const digit = Math.abs(r)%10
-        return [...acc, digit]
-
-      }, []).map(Number)
-      
-      InputSignal = nextInput
-      phase++
-      
-    }
-     //Get first 8 digits
-    return InputSignal.slice(offset,offset+8).join('')
-
-
-}
 
 const FFT = (input, offset = 0) => {
 
@@ -47,28 +16,37 @@ const FFT = (input, offset = 0) => {
 
     let phase = 0
 
-    // 4,8,2,2,6,1,5,8,
-
     while (phase<100) {
       
-      const nextInput = InputSignal.reduce((acc,o,i) => {
+      InputSignal = InputSignal.reduce((acc,o,i) => {
 
         let sum = 0;
+        let index = 0;
+        let d = 1;
 
-        // const r = InputSignal.reduce((acc, e, i) => acc + e * newPattern[i % newPattern.length] ,0 )
+        for(let a = 0; a < InputSignal.length; a++) {
 
-        for(let a = i; a < InputSignal.length; a+=1/i) {
-            // sum+=InputSignal.reduce((t,e) => t + e*BasePattern[a],0 )
-            console.log(Math.floor(a))
+            if(d%(i+1) === 0) {
+              d = 1;
+              index++
+            } else {
+              d++
+            }
+
+            if (index%4 === 1) {
+              sum+=InputSignal[a]
+            } else if (index%4 ===3) {
+              sum-=InputSignal[a]
+            }
+
         }
-
-        //Get last digit
-        // const digit = Math.abs(r)%10
-        // return [...acc, digit]
+       
+        // Get last digit
+        const digit = Math.abs(sum)%10
+        return [...acc, digit]
 
       }, []).map(Number)
       
-      InputSignal = nextInput
       phase++
       
     }
@@ -77,6 +55,7 @@ const FFT = (input, offset = 0) => {
 
 
 }
+
 
 const part1 = (input) => {
 
@@ -94,18 +73,24 @@ const part1 = (input) => {
 const part2 = (input) => {
 
     const times = 10000;
-    let InputSignal = input.repeat(times).split('').map(Number);
+    let a = input.repeat(times).split('').map(Number);
 
     const offset = Number( input.slice(0,7) );
 
-    const a = InputSignal.slice(offset)
+    for(let i = 0; i<100; i++) {
+        
+        for(let i = a.length - 1; i>0; i--){
+          a[i] = (a[i] + (a[i+1] || 0)) % 10
+        }
 
-    return FFT(a)
+    }
+
+    return a.slice(offset, offset+8).join('')
 
 }
 
 
-console.log('part 1', part1(demo) ) //94960436  //12779.2919921875ms
-
+console.log('part 1', part1(puzzle) ) //94960436  //457.925048828125ms
+console.log('part 2', part2(puzzle) ) // 57762756
 
 
