@@ -173,13 +173,7 @@ const draw = input => {
     })
 }
 
-function part2(input) {
-    
-    const computer = new Computer(input)
-    const output = computer.run();
-
-    let p = ascii(output)
-    draw(p);
+const findPath = p => {
 
     let x, y;
 
@@ -210,24 +204,24 @@ function part2(input) {
 
         switch(orientation) {
             case 0:
-                left = p[y][x-1] 
-                right = p[y][x+1]
-                forward = p[y-1][x]
+                left = p[y][x-1] ? p[y][x-1] : '.'
+                right = p[y][x+1] ? p[y][x+1] : '.'
+                forward = p[y-1] ? p[y-1][x] : '.'
             break;
             case 90:
-                left = p[y-1][x]
-                right = p[y+1][x] 
-                forward = p[y][x+1] 
+                left = p[y-1] ? p[y-1][x] : '.'
+                right = p[y+1] ? p[y+1][x] : '.'
+                forward = p[y][x+1] ? p[y][x+1] : '.'
             break;
             case 180:
-                left = p[y][x+1] 
-                right = p[y][x-1]
-                forward = p[y+1][x]
+                left = p[y][x+1] ? p[y][x+1] : '.'
+                right = p[y][x-1] ? p[y][x-1] : '.'
+                forward = p[y+1] ? p[y+1][x] : '.'
             break;
             case 270:
-                left = p[y+1][x]
-                right = p[y-1][x]
-                forward = p[y][x-1]
+                left = p[y+1] ? p[y+1][x] : '.'
+                right = p[y-1] ? p[y-1][x] : '.'
+                forward = p[y][x-1] ? p[y][x-1] : '.'
             break;
         }
 
@@ -265,19 +259,90 @@ function part2(input) {
             orientation = orientation === -90 ? 270 : orientation === 360 ? 0 : orientation
         }
 
-        console.log(path, orientation)
         i++
     }
 
-    input[0] = 2;
+    
 
 
-    return [p, path]
-
+    return path
 
 }
 
 
+const findRoutine = path => {
+
+    let copy = Object.assign([],path);
+    // Adding a comma at the end
+    copy.push('')
+
+    let A,B,C;
+
+    const chunk = (path,i) => {
+
+        const chunk = path.slice(0,i).join(',');
+        const p = path.join(',').split(chunk+',').join('').split(',')
+        
+        return [p, chunk]
+    }
+
+    console.log('copy', copy)
+    for(let i = 2; copy.slice(0,i).join(',').length < 20; i+=2) {
+
+        const [pathA, chunkA] = chunk(copy,i)
+
+
+        for(let j = 2; pathA.slice(0,j).join(',').length <= 20; j+=2) {
+
+            const [pathB, chunkB] = chunk(pathA,j)
+
+            for(let k = 2; pathB.slice(0,k).join(',').length < 20; k+=2) {
+
+            const [pathC, chunkC] = chunk(pathB,k)
+
+            if(pathC.join('').length === 0) {
+
+                A = chunkA;
+                B = chunkB;
+                C = chunkC;
+
+            }
+
+        }
+
+        }
+
+    }
+
+    const routine = path.join(',').split(A).join('A').split(B).join('B').split(C).join('C')
+
+    return [routine,A,B,C];
+
+}
+
+
+function part2(input) {
+    
+    const computer = new Computer(input)
+    const output = computer.run();
+
+    let p = ascii(output)
+    draw(p);
+
+    const path = findPath(p)
+
+    const w = ['R',8,'R',8,'R',4,'R',4,'R',8,'L',6,'L',2,'R',4,'R',4,'R',8,'R',8,'R',8,'L',6,'L',2]
+
+        console.log(path, w)
+    const routine = findRoutine(path)
+
+    input[0] = 2;
+
+    return routine
+
+}
+
+// const w = part2(puzzle)
 // console.log('part1', part1(puzzle)) // 10632
 console.log('part2', part2(puzzle)) // 10632
 
