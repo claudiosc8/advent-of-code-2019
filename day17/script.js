@@ -13,7 +13,6 @@ class Computer {
 
     giveInput(inputs = []) {
         this.inputs = inputs;
-
         return this;
     }
 
@@ -281,16 +280,15 @@ const findRoutine = path => {
     const chunk = (path,i) => {
 
         const chunk = path.slice(0,i).join(',');
-        const p = path.join(',').split(chunk+',').join('').split(',')
+
+        const p = path.join(',').replace(new RegExp(chunk + ",?", "g"), "").split(',');
         
         return [p, chunk]
     }
 
-    console.log('copy', copy)
     for(let i = 2; copy.slice(0,i).join(',').length < 20; i+=2) {
 
         const [pathA, chunkA] = chunk(copy,i)
-
 
         for(let j = 2; pathA.slice(0,j).join(',').length <= 20; j+=2) {
 
@@ -298,25 +296,27 @@ const findRoutine = path => {
 
             for(let k = 2; pathB.slice(0,k).join(',').length < 20; k+=2) {
 
-            const [pathC, chunkC] = chunk(pathB,k)
+                const [pathC, chunkC] = chunk(pathB,k)
 
-            if(pathC.join('').length === 0) {
+                if(pathC.join('').length === 0) {
 
-                A = chunkA;
-                B = chunkB;
-                C = chunkC;
+                    A = chunkA;
+                    B = chunkB;
+                    C = chunkC;
+                    break;
+                }
 
             }
 
         }
 
-        }
-
     }
 
-    const routine = path.join(',').split(A).join('A').split(B).join('B').split(C).join('C')
+    const mainroutine = path.join(',').split(A).join('A').split(B).join('B').split(C).join('C')
 
-    return [routine,A,B,C];
+    const routine = mainroutine + "\n" + A + "\n" + B + "\n" + C + "\n";
+
+    return routine;
 
 }
 
@@ -331,18 +331,18 @@ function part2(input) {
 
     const path = findPath(p)
 
-    const w = ['R',8,'R',8,'R',4,'R',4,'R',8,'L',6,'L',2,'R',4,'R',4,'R',8,'R',8,'R',8,'L',6,'L',2]
-
-        console.log(path, w)
-    const routine = findRoutine(path)
+    const routine = findRoutine(path)+"y\n"
+    const instructions = routine.split('').map( e => e.charCodeAt(0) )
 
     input[0] = 2;
+    const vacuum = new Computer( input );
+    const dust = vacuum.giveInput(instructions).run();
 
-    return routine
+    return dust.pop()
 
 }
 
-// const w = part2(puzzle)
-// console.log('part1', part1(puzzle)) // 10632
-console.log('part2', part2(puzzle)) // 10632
+
+console.log('part1', part1(puzzle)) // 10632
+console.log('part2', part2(puzzle)) // 1356191
 
