@@ -96,8 +96,6 @@ const demo2 = `
 ###g#h#i################
 ########################
 `
-// Shortest paths are 81 steps; one is: a, c, f, i, d, g, b, e, h
-
 const demo3 = `
 #################
 #i.G..c...e..H.p#
@@ -109,7 +107,7 @@ const demo3 = `
 #l.F..d...h..C.m#
 #################
 `
-//Shortest paths are 136 steps; one is: a, f, b, j, g, n, h, d, l, o, e, p, c, i, k, m
+
 
 class mazeController {
 
@@ -117,54 +115,13 @@ class mazeController {
         this.canvas = canvas;
         this.context = this.canvas.getContext('2d');
         this.maze = new Maze(this.context, maze);
-        this.algorithm = new algorithm(this.maze);
+        this.walker = new walkerManager(this.context, this.maze);
+        this.algorithm = new searchAlgorithm(this.walker);
         this.speed = 50;
         this.keys = [];
         this.goal = this.maze.goal;
-        this.sequence = [];
-        this.steps = 0;
     }
 
-    test() {
-
-        let stop = false
-
-        while(!stop) {
-
-            console.log(this.maze.keysMap, this.maze.doorsMap)
-
-            let closer;
-            let length = 0;
-
-            this.maze.keysMap.forEach(e => {
-
-                const p = this.algorithm.calculatePath([this.maze.start.y,this.maze.start.x], [e.pos.y, e.pos.x])
-
-                if(p.length > 0 ){
-                    console.log(p.length, e.name)
-                   closer = e.name;
-                   length = p.length - 1;
-                }
-                
-            })
-
-            if(closer === undefined) {
-                stop = true;
-            } else {
-                this.steps += length
-                this.sequence.push(closer)
-                this.maze.moveWalkerToKey(closer)
-                this.maze.draw()
-                console.log('maze', this.maze.map, closer)
-            }
-
-            
-
-        }
-
-        return [this.sequence, this.steps]
-  
-    }
 
     run() {
         if (!this.algorithm.isDone()) {
@@ -194,60 +151,10 @@ class Maze {
         this.map = maze.split('\n').slice(1,-1).map(e => e.split(''));
         this.width = this.map[0].length;
         this.height = this.map.length;
-        this.goal = maze.replace(/[\n@.#A-Z]/g,"").split('');
-        this.doors = maze.replace(/[\n@.#a-z]/g,"").split('');
-        this.keysMap = this.setKeyMap(true);
-        this.doorsMap = this.setKeyMap(false);
-        this.start = this.findStartingPoint(),
+        this.goal = maze.replace(/[\n@.#A-Z]/g,"").length;
         this.unit = 13;
     }
-
-    swap(a,b) {
-
-        for (let y = 0; y < this.height; y++) {
-            for (let x = 0; x < this.width; x++) {
-                if( this.map[y][x] === a ) {
-                    this.map[y][x] = b
-                } 
-            }
-        }
-
-    }
-
-    moveWalkerToKey(key) {
-        this.swap('@','.')
-        this.swap(key.toUpperCase(),'.')
-        this.swap(key,'@')
-        this.keysMap = this.setKeyMap(true);
-        this.start = this.findStartingPoint();
-    }
-
-
-    findStartingPoint() {
-         for (let y = 0; y < this.height; y++) {
-            for (let x = 0; x < this.width; x++) {
-                if( this.isWalker(x, y) ) {
-                    return {x,y}
-                } 
-            }
-        }
-    }
-
-
-    setKeyMap(check) {
-        const keysMap = [];
-        for (let y = 0; y < this.height; y++) {
-            for (let x = 0; x < this.width; x++) {
-                if(check ? this.isKey(x, y) : this.isDoor(x, y)) {
-                    keysMap.push({name:this.map[y][x], pos:{x,y}})
-                } 
-            }
-        }
-
-        return keysMap;
-    }
-
-
+  
     draw(drawClear = false) {
 
         const {context, unit} = this;
@@ -331,177 +238,343 @@ class Maze {
     }
 
     isKey(x, y) {
-        return (!this.isWall(x, y) && !this.isOpen(x, y) && !this.isWalker(x, y) && !this.isUpperCase(this.map[y][x])) 
+        return (!this.isWall(x, y) && !this.isOpen(x, y) && !this.isUpperCase(this.map[y][x])) 
     }
 
     isDoor(x, y) {
-        return (!this.isWall(x, y) && !this.isOpen(x, y) && !this.isWalker(x, y) && this.isUpperCase(this.map[y][x])) 
+        return (!this.isWall(x, y) && !this.isOpen(x, y)  && this.isUpperCase(this.map[y][x])) 
     }
     
+    canGo(x, y) {
+        return (this.isOpen(x, y) || this.isKey(x, y));
+    }
+
+    isClosed(x, y) {
+        return (this.isWall(x, y) || this.isDoor(x, y));
+    }
+
 
 };
 
 
-// world is a 2d array of integers (eg world[10][15] = 0)
-// pathStart and pathEnd are arrays like [5,10]
-class algorithm {
+///////////////// SEARCH /////////////////
 
-    constructor(maze) {
-        // keep track of the world dimensions
-        // Note that this A-star implementation expects the world array to be square: 
-        // it must have equal height and width. If your game world is rectangular, 
-        // just fill the array with dummy values to pad the empty space.
-        this.maze = maze;
-        this.map = this.maze.map
-        this.mapWidth = this.map[0].length;
-        this.mapHeight = this.map.length;
-        this.mapSize = this.mapWidth * this.mapHeight;
+class searchAlgorithm {
+
+    constructor(walker) {
+        this.walker = walker;
+        this.direction = 0;
+        this.end = walker.maze.end;
     }
     
-
-    // distanceFunction functions
-    // these return how far away a point is to another
-
-    ManhattanDistance(Point, Goal)
-    {   // linear movement just cardinal directions (NSEW)
-        return Math.abs(Point.x - Goal.x) + Math.abs(Point.y - Goal.y);
-    }
-
-    canWalk(d) {
-        return (this.maze.isOpen(d.x, d.y) || this.maze.isKey(d.x, d.y));
-    }
-
-
-    // Neighbours functions, used by findNeighbours function
-    // to locate adjacent available cells that aren't blocked
-
-    // Returns every available North, South, East or West
-    Neighbours(x, y)
-    {
-
-        const result = [];
-
-        const directions = [
-            {x:x, y:y-1}, //NORTH
-            {x:x, y:y+1}, //SOUTH
-            {x:x+1, y:y}, //EAST
-            {x:x-1, y:y}, //WEST
-        ]
-
-        directions.forEach(d => {
-            if(this.canWalk(d)) {
-                result.push(d);
-            }
-        })
+    
+    step() {
+        var startingDirection = this.direction;
         
-        
-        return result;
-
-    }
-
-    // Node function, returns a new object with Node properties
-    // Used in the calculatePath function to store route costs, etc.
-    Node(Parent, Point)
-    {
-        var newNode = {
-            // pointer to another Node object
-            Parent:Parent,
-            // array index of this Node in the world linear array
-            value:Point.x + (Point.y * this.mapWidth),
-            // the location coordinates of this Node
-            x:Point.x,
-            y:Point.y,
-            // the heuristic estimated cost of an entire path using this node
-            f:0,
-            // the distanceFunction cost to get from the starting point to this node
-            g:0
-        };
-
-        return newNode;
-    }
-
-    // Path function, executes AStar algorithm operations
-    calculatePath(pathStart, pathEnd)
-    {
-        // create Nodes from the Start and End x,y coordinates
-        var mypathStart = this.Node(null, {x:pathStart[1], y:pathStart[0]});
-        var mypathEnd = this.Node(null, {x:pathEnd[1], y:pathEnd[0]});
-        // create an array that will contain all world cells
-        var AStar = new Array(this.mapSize);
-        // list of currently open Nodes
-        var Open = [mypathStart];
-        // list of closed Nodes
-        var Closed = [];
-        // list of the final output array
-        var result = [];
-        // reference to a Node (that is nearby)
-        var myNeighbours;
-        // reference to a Node (that we are considering now)
-        var myNode;
-        // reference to a Node (that starts a path in question)
-        var myPath;
-        // temp integer variables used in the calculations
-        var length, max, min, i, j;
-        // iterate through the open list until none are left
-        while(length = Open.length)
-        {
-            max = this.mapSize;
-            min = -1;
-            for(i = 0; i < length; i++)
-            {
-                if(Open[i].f < max)
-                {
-                    max = Open[i].f;
-                    min = i;
-                }
+        while (!this.walker.move(this.direction)) {
+            // Hit a wall. Turn to the right.       
+            this.direction++;
+            
+            if (this.direction > 3) {
+                this.direction = 0;
             }
-            // grab the next node and remove it from Open array
-            myNode = Open.splice(min, 1)[0];
-            // is it the destination node?
-            if(myNode.value === mypathEnd.value)
-            {
-                myPath = Closed[Closed.push(myNode) - 1];
-                do
-                {
-                    result.push([myPath.x, myPath.y]);
-                }
-                while (myPath = myPath.Parent);
-                // clear the working arrays
-                AStar = Closed = Open = [];
-                // we want to return start to finish
-                result.reverse();
-            }
-            else // not the destination
-            {
-                // find which nearby nodes are walkable
-                myNeighbours = this.Neighbours(myNode.x, myNode.y);
-                // test each one that hasn't been tried already
-                for(i = 0, j = myNeighbours.length; i < j; i++)
-                {
-                    myPath = this.Node(myNode, myNeighbours[i]);
-                    if (!AStar[myPath.value])
-                    {
-                        // estimated cost of this particular route so far
-                        myPath.g = myNode.g + this.ManhattanDistance(myNeighbours[i], myNode);
-                        // estimated cost of entire guessed route to the destination
-                        myPath.f = myPath.g + this.ManhattanDistance(myNeighbours[i], mypathEnd);
-                        // remember this new path for testing above
-                        Open.push(myPath);
-                        // mark this node in the world graph as visited
-                        AStar[myPath.value] = true;
-
+            
+            if (this.direction == startingDirection) {
+                // We've turned in a complete circle with no new path available. Time to backtrack.
+                while (!this.walker.move(this.direction, true)) {
+                    // Hit a wall. Turn to the right.       
+                    this.direction++;
+                    
+                    if (this.direction > 3) {
+                        this.direction = 0;
                     }
                 }
 
-                // remember this route as having no more untested options
-                Closed.push(myNode);
+                break;
             }
-        } // keep iterating until the Open list is empty
-        return result;
+        }
+        
+        this.walker.draw();
+    }
+    
+    isDone() {
+        return (walker.x == walker.maze.end.x && walker.y == walker.maze.end.y);
+    }
+    
+    solve() {
+        // Draw solution path.
+        for (var x = 0; x < this.walker.maze.width; x++) {
+            for (var y = 0; y < this.walker.maze.height; y++) {
+                if (this.walker.visited[x][y] == 1) {
+                    this.walker.context.fillStyle = 'red';
+                    this.walker.context.fillRect(x * 10, y * 10, 10, 10);                   
+                }
+            }
+        }
+    }   
+};
+
+
+class walkerManager {
+
+    constructor(context, maze) {
+        this.context = context;
+        this.maze = maze;
+        this.position = this.getStartingPoint(this.maze.width, this.maze.height)
+        this.lastPosition = {x:-1,y:-1};
+        this.visited = this.setVisited(this.maze.width, this.maze.height);
+        this.ownedKeys = [];
+    }
+    
+
+    getStartingPoint(width,height) {
+
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                if(this.maze.isWalker(x, y)) {
+                    return {x,y};
+                }
+            }
+        }
+
     }
 
-} 
+    setVisited(x,y) {
+        // Clear array to all zeros.       
+        let array = new Array(y).fill(0).map(e => new Array(x).fill(0) );;
+        
+        // Set starting point.
+        array[this.position.x][this.position.y] = 1;
 
+        return array;
+    }
+    
+    draw() {
+        this.context.fillStyle = 'rgb(255, 100, 100)';
+        this.context.fillRect(this.x * 10, this.y * 10, 10, 10);
+    }
+    
+    move(direction, backtrack) {
+        var changed = false;
+        oldX = this.x;
+        oldY = this.y;
+        
+        if (backtrack || !this.hasVisited(direction)) {
+            // Get the new x,y after moving.
+            var point = this.getXYForDirection(direction);
+
+            // Check if this is a valid move.
+            if (this.canMove(point.x, point.y)) {
+                this.x = point.x;
+                this.y = point.y;
+                changed = true;
+            }
+        }
+        
+        if (changed) {
+            this.context.fillStyle = 'rgb(' + (backtrack ? 100 : 255) + ', 0, 0)';
+            this.context.fillRect(oldX * 10, oldY * 10, 10, 10);
+        
+            this.lastX = oldX;
+            this.lastY = oldY;
+        
+            // Mark this tile as visited (possibly twice).
+            this.visited[this.x][this.y]++;
+
+            if (backtrack) {
+                // We've turned around, so don't visit this last tile again.
+                this.visited[this.lastX][this.lastY] = 2;
+            }
+            
+            if (this.visited[oldX][oldY] == 2 && this.visited[this.x][this.y] == 1) {
+                // Found an unwalked tile while backtracking. Mark our last tile back to 1 so we can visit it again to exit this path.
+                this.visited[oldX][oldY] = 1;
+                this.context.fillStyle = 'rgb(255, 0, 0)';
+                this.context.fillRect(oldX * 10, oldY * 10, 10, 10);
+            }
+        }
+        
+        return changed;
+    }
+    
+    canMove(x, y) {
+        return (maze.isOpen(x, y) && this.visited[x][y] < 2);
+    }
+    
+    hasVisited(direction) {
+        // Get the new x,y after moving.
+        var point = this.getXYForDirection(direction);
+
+        // Check if this point has already been visited.
+        return (this.visited[point.x][point.y] > 0);
+    }
+    
+    getXYForDirection(direction) {
+        var point = {};
+
+        switch (direction) {
+            case 0: point.x = this.x; point.y = this.y - 1; break;
+            case 1: point.x = this.x + 1; point.y = this.y; break;
+            case 2: point.x = this.x; point.y = this.y + 1; break;
+            case 3: point.x = this.x - 1; point.y = this.y; break;
+        };
+        
+        return point;
+    }
+};
+
+function createArray(length) {
+    var arr = new Array(length || 0),
+        i = length;
+
+    if (arguments.length > 1) {
+        var args = Array.prototype.slice.call(arguments, 1);
+        while(i--) arr[length-1 - i] = createArray.apply(this, args);
+    }
+
+    return arr;
+}
+
+
+// class Robot {
+
+//     constructor(map, position, steps = 0) {
+//         this.map = map;
+//         this.steps = steps;
+//         this.position = position;
+//         this.ownedKeys = [];
+//     }
+
+//     isUpperCase (char) {
+//         return char == char.toUpperCase() ? true : false
+//     } 
+
+//     ownThatKey (key) {
+//         return this.ownedKeys.includes(key.toLowerCase())
+//     }
+
+//     oppositeDirection (d) {
+
+//         switch (d) {
+//             case 1:
+//                 return 3
+//                 break;
+//             case 2:
+//                 return 4
+//                 break;
+//             case 3:
+//                 return 1
+//                 break;
+//             case 4:
+//                 return 2
+//                 break;
+//         }
+
+//     }
+
+//     move (d) {
+
+//         const {x,y} = this.position;
+
+//         this.map[y][x] = '.'
+
+//         switch (d) {
+//             case 1: //UP
+//                 this.position.y--
+//                 break;
+//             case 3: //DOWN
+//                 this.position.y++
+//                 break;
+//             case 4: //LEFT
+//                 this.position.x--
+//                 break;
+//             case 2: //RIGHT
+//                 this.position.x++
+//                 break;
+//         }
+
+//         this.map[this.position.y][this.position.x] = '@'
+
+//     }
+
+//     newDirection() {
+
+//         const {x,y} = this.position;
+
+//         const left = this.map[y][x-1]
+//         const right = this.map[y][x+1]
+//         const up = this.map[y-1][x]
+//         const down = this.map[y+1][x]
+
+//         const directions = [];
+       
+//         [up, right, down, left].forEach( (dir, i) => {
+
+//             if(dir !== '#' && !this.ownThatKey(dir) ) {
+//                 directions.push(i)
+
+//                 if (dir !== '.' && !this.isUpperCase(dir)) {
+//                     // key
+//                     this.ownedKeys.push(dir)
+//                 } 
+//             }
+
+//         })
+        
+//         console.log(directions)
+
+//     }
+
+//     run(ctx) {
+
+//         while(!this.cross && !this.impasse && !this.ObjectFound) {
+
+//             const [output] = this.computer.giveInput([this.direction]).run(1);
+
+//             if (output === 0) {
+
+//                 console.log('wall hitted')
+
+//             } else if(output === 1) {
+
+//                 this.move(this.direction);
+//                 this.draw(ctx, "rgba(0, 0, 0, 0.2)")
+//                 this.newDirection();
+
+//                 if(this.cross) {
+//                    this.draw(ctx, "rgba(255, 0, 255, 0.2)")
+//                 }
+
+//                 this.lastDirection = this.direction
+                
+//             } else if(output === 2) {
+
+//                 this.move(this.direction);
+//                 this.draw(ctx, "#FF0000")
+//                 this.ObjectFound = true;
+
+
+//             } else {
+//                 console.log('output not known', output)
+//             }
+              
+//             this.steps++
+
+//         }
+
+//         return {
+//             program:this.computer.program, 
+//             ways:this.ways, 
+//             x:this.x, y:this.y, 
+//             steps:this.steps, 
+//             cross:this.cross,
+//             impasse:this.impasse,
+//             ObjectFound:this.ObjectFound,
+//         }
+
+//     }
+
+// }
 
 
 const part1 = input => {
@@ -513,11 +586,11 @@ const part1 = input => {
     const controller = new mazeController(input, canvas)
     controller.maze.draw();
 
-    return controller.test();
+    return controller.walker.position
 }
 
 
 
 
-console.log('part1', part1(demo1)) // 282
+console.log('part1', part1(puzzle)) // 282
 
