@@ -151,8 +151,6 @@ class mazeController {
         const AvailableKeys = maze.keysMap(parent.map);
         const startingPoint = maze.findStartingPoint(parent.map)
 
-
-
         AvailableKeys.forEach(e => {
 
             const start = [startingPoint.y,startingPoint.x];
@@ -171,7 +169,7 @@ class mazeController {
                parent.keys.push(child)              
 
                maze.draw(this.context, newMap);
-               window.setTimeout(() => {this.findNodes(child)}, 100);
+               window.setTimeout(() => {this.findNodes(child)}, 1);
                
             } 
             
