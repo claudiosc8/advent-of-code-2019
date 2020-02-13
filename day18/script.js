@@ -120,80 +120,131 @@ const demo4 = `
 `
 //Shortest path is 132 steps: b, a, c, d, f, e, g
 
+const demo5 = `
+########################
+#@..p..wq.t..r..ac....b#
+###d#e#f####z###########
+###.#.#.####.###########
+###g#h#i####n###########
+########################
+`
+
+const demo6 = `
+#################
+#i....c...e....p#
+########.########
+#j....b...f....o#
+########@########
+#k....a...g....n#
+########.########
+#l....d...h....m#
+#################
+`
+
+// Shortest paths are 81 steps; one is: a, c, f, i, d, g, b, e, h
+
 class Node {
-  constructor(value, maze, path=[], steps = 0) {
+  constructor(value = [], maze = [], steps = Infinity) {
     this.value = value;
     this.keys = [];
     this.map = maze;
-    this.path = path;
     this.steps = steps;
   }
 }
 
 class mazeController {
 
-    constructor(maze, canvas) {
+    constructor(map, canvas) {
         this.canvas = canvas;
         this.context = this.canvas.getContext('2d');
-        this.input = maze;
-        this.goal = maze.replace(/[\n@.#A-Z]/g,"").split('');
-        this.doors = maze.replace(/[\n@.#a-z]/g,"").split('');
-        this.algorithm = new algorithm();
+        this.input = map;
+        this.goal = map.replace(/[\n@.#A-Z]/g,"").split('');
+        this.doors = map.replace(/[\n@.#a-z]/g,"").split('');
+        this.doorsMap = undefined;
         this.speed = 50;
-        this.keys = [];
-        this.sequence = [];
-        this.steps = 0;
-        this.result = [];
+        this.result = new Node();
     }
 
-    findNodes(parent) {
+    findNodes(parent, walker, keysMap) {
 
-        const AvailableKeys = maze.keysMap(parent.map);
-        const startingPoint = maze.findStartingPoint(parent.map)
+        // if(this.result.steps !== Infinity) {
+        //     console.log(this.result)
+        // }
 
-        AvailableKeys.forEach(e => {
+        if(this.result.steps > parent.steps) {
 
-            const start = [startingPoint.y,startingPoint.x];
-            const end = [e.pos.y, e.pos.x]
+            keysMap.forEach(key => {
 
-            const path = this.algorithm.calculatePath(start, end, parent.map, e.name)
+                // const start = [walker.y,walker.x];
+                // const end = [key.pos.y, key.pos.x]
 
-            if(path.length !== 0){
+                const path = algorithm.calculatePath([walker.y,walker.x], [key.pos.y, key.pos.x], parent.map, key.name)
 
-               //Create a copy of the 2d array 
-               const newMap = parent.map.map(e => e.slice());
-               maze.moveWalkerToKey(e.name, newMap);
+                // const path = pathfinder.findShortestPath([walker.y,walker.x], key.name, parent.map)
 
-               const child = new Node([...parent.value, e.name], newMap, [...parent.path, ...path.slice(0, path.length-2)], parent.steps + path.length-1)       
 
-               parent.keys.push(child)              
+                if(path.length>0){
+                
+                   //Create a copy of the 2d array 
+                   const newMap = parent.map.map(e => e.slice());
 
-               maze.draw(this.context, newMap);
-               window.setTimeout(() => {this.findNodes(child)}, 1);
-               
-            } 
-            
-        })
+                   // replace starting position with '.'
+                   newMap[walker.y][walker.x] = '.'
+                   // replace key position with walker
+                   newMap[key.pos.y][key.pos.x] = '@'
+                   // find door position
+                   const door = this.doorsMap[key.name.toUpperCase()]
+                   if(door) { newMap[door.y][door.x] = '.' }
 
-        if(AvailableKeys.length === 0) {
-            this.result.push(parent)       
+                    // remove that key from the keymap
+                   const updatedKeys = keysMap.filter(a => a.name !== key.name)
+
+                   const child = new Node([...parent.value, key.name], newMap, parent.steps + path.length-1)       
+
+                   parent.keys.push(child)              
+
+                   // console.log(child)
+
+
+                   this.findNodes(child, key.pos, updatedKeys)
+                   
+                } 
+                
+            })
+
+            if(keysMap.length === 0) {
+                this.result = parent              
+            }
+
         }
 
-        return parent
     }
 
     run() {
 
         const map = this.input.split('\n').slice(1,-1).map(e => e.split(''));
-        const parent = new Node([], map);
+
+        this.doorsMap = maze.findDoors(this.doors, map);
+        const walker = maze.findStartingPoint(map)
+        const keysMap = maze.keysMap(map);
+
+        const parent = new Node([], map, 0);
 
         maze.draw(this.context, map);
 
-        this.findNodes(parent)
+        this.findNodes(parent, walker, keysMap)
 
-        this.result = this.result.sort((a, b) => a.steps - b.steps )
-  
         return this.result
+    }
+
+    test() {
+
+        const map = this.input.split('\n').slice(1,-1).map(e => e.split(''));
+        const walker = maze.findStartingPoint(map)
+
+        const path = pathfinder.findShortestPath([walker.y,walker.x], 'a', map)
+
+        return path
     }
 
     
@@ -236,31 +287,23 @@ const maze = {
         }
     },
 
-    moveWalkerToKey: function(key, map) {
+    findDoors: function(doors, map) {
 
         const width = map[0].length;
         const height = map.length;
 
-        for (let y = 0; y < height; y++) {
+        const doorsMap = {};
+
+         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
-
-                if( map[y][x] === '@' ) {
-                    map[y][x] = '.'
-
-                } else if ( map[y][x] === key.toUpperCase() ) {
-                    map[y][x] = '.'
-
-                } else if( map[y][x] === key ) {
-                    map[y][x] = '@'
-
+                if( this.isDoor(x, y, map) ) {
+                    doorsMap[map[y][x]] = {x,y}
                 } 
-
             }
         }
 
-        return map
+        return doorsMap;
     },
-
 
     isUpperCase: function(char) {
         return char == char.toUpperCase() ? true : false
@@ -357,27 +400,21 @@ const maze = {
 
 
 
-// world is a 2d array of integers (eg world[10][15] = 0)
-// pathStart and pathEnd are arrays like [5,10]
-class algorithm {
+const algorithm = {
 
     // distanceFunction functions
     // these return how far away a point is to another
 
-    ManhattanDistance(Point, Goal)
+    ManhattanDistance: function(Point, Goal)
     {   // linear movement just cardinal directions (NSEW)
         return Math.abs(Point.x - Goal.x) + Math.abs(Point.y - Goal.y);
-    }
-
-    canWalk(d, map, key) {
-        return (maze.isOpen(d.x, d.y, map) || maze.isThatKey(d.x, d.y, map, key));
-    }
+    },
 
     // Neighbours functions, used by findNeighbours function
     // to locate adjacent available cells that aren't blocked
 
     // Returns every available North, South, East or West
-    Neighbours(x, y, map, key)
+    Neighbours: function(x, y, map, key)
     {
 
         const result = [];
@@ -390,19 +427,18 @@ class algorithm {
         ]
 
         directions.forEach(d => {
-            if(this.canWalk(d, map, key)) {
+            if(map[d.y][d.x] == '.' || map[d.y][d.x] == key) {
                 result.push(d);
             }
         })
         
-        
         return result;
 
-    }
+    },
 
     // Node function, returns a new object with Node properties
     // Used in the calculatePath function to store route costs, etc.
-    Node(Parent, Point, mapWidth)
+    Node: function(Parent, Point, mapWidth)
     {
         var newNode = {
             // pointer to another Node object
@@ -419,10 +455,10 @@ class algorithm {
         };
 
         return newNode;
-    }
+    },
 
     // Path function, executes AStar algorithm operations
-    calculatePath(pathStart, pathEnd, map, key)
+    calculatePath: function(pathStart, pathEnd, map, key)
     {   
 
         const mapWidth = map[0].length;
@@ -504,10 +540,110 @@ class algorithm {
             }
         } // keep iterating until the Open list is empty
         return result;
-    }
+    },
 
 } 
 
+
+const pathfinder = {
+
+  findShortestPath : function(start, goal, grid) {
+
+    const map = grid.map(e => e.slice());
+    var y = start[0];
+    var x = start[1];
+
+    // Each "location" will store its coordinates
+    // and the shortest path required to arrive there
+    var location = {
+      y: y,
+      x: x,
+      path: [],
+      status: 'Start'
+    };
+
+    // Initialize the queue with the start location already inside
+    var queue = [location];
+
+    // Loop through the grid searching for the goal
+    while (queue.length > 0) {
+      // Take the first location off the queue
+      var currentLocation = queue.shift();
+
+      const directions = ['North', 'East', 'South', 'West']
+
+      const d = [
+              {x:currentLocation.x, y:currentLocation.y-1}, //NORTH
+              {x:currentLocation.x, y:currentLocation.y+1}, //SOUTH
+              {x:currentLocation.x+1, y:currentLocation.y}, //EAST
+              {x:currentLocation.x-1, y:currentLocation.y}, //WEST
+          ]
+
+      for(let i = 0; i<d.length; i++) {
+
+          var newLocation = this.exploreInDirection(currentLocation, d[i], map, goal);
+        if (newLocation.status === goal) {
+          return newLocation.path;
+        } else if (newLocation.status === 'Valid') {
+          queue.push(newLocation);
+        }
+
+      }
+
+    }
+
+    // No valid path found
+    return false;
+
+  },
+
+  // This function will check a location's status
+  // (a location is "valid" if it is on the grid, is not an "obstacle",
+  // and has not yet been visited by our algorithm)
+  // Returns "Valid", "Invalid", "Blocked", or "Goal"
+  locationStatus : function(location, map, goal) {
+
+    if (location.x < 0 ||
+        location.x >= map[0].length ||
+        location.y < 0 ||
+        location.y >= map.length) {
+
+      // location is not on the grid--return false
+      return 'Invalid';
+    } else if (map[location.y][location.x] === goal) {
+      return goal;
+    } else if (map[location.y][location.x] !== '.') {
+      // location is either an obstacle or has been visited
+      return 'Blocked';
+    } else {
+      return 'Valid';
+    }
+
+  },
+
+
+  // Explores the grid from the given location in the given
+  // direction
+  exploreInDirection : function(currentLocation, direction, map, goal) {
+
+    const newPath = currentLocation.path.slice();
+    newPath.push(direction);
+
+    const newLocation = {
+      y: direction.y,
+      x: direction.x,
+      path: newPath,
+      status: this.locationStatus({x:direction.x,y:direction.y}, map, goal),
+    };
+   
+    // If this new location is valid, mark it as 'Visited'
+    if (newLocation.status === 'Valid') {
+      map[newLocation.y][newLocation.x] = '+';
+    }
+
+    return newLocation;
+  },
+}
 
 
 const part1 = input => {
@@ -527,5 +663,5 @@ const part1 = input => {
 
 
 
-console.log('part1', part1(demo3)) // 282
+console.debug('part1', part1(demo2)) // 282
 
