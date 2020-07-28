@@ -7,4 +7,4 @@ This are my solutions for the [Advent of Code 2019](https://adventofcode.com) pu
 
 Clone the *advent_of_code* repository to a nice place on your machine via:
 
-    git clone git@github.com:claudiosc8/advent-of-code-2019.git
+    git clone https://github.com/claudiosc8/advent-of-code-2019.git
